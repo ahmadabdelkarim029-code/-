@@ -1,0 +1,122 @@
+{
+  "entities": {
+    "Group": {
+      "title": "Group",
+      "description": "A study group or class managed by a teacher",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the group"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the group/class"
+        },
+        "teacherId": {
+          "type": "string",
+          "description": "The UID of the teacher who created the group"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the group was created"
+        }
+      },
+      "required": ["id", "name", "teacherId", "createdAt"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "A student enrolled in a group",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the student"
+        },
+        "name": {
+          "type": "string",
+          "description": "The student's name"
+        },
+        "groupId": {
+          "type": "string",
+          "description": "The ID of the group this student belongs to"
+        },
+        "parentPhone": {
+          "type": "string",
+          "description": "The phone number of the parent"
+        },
+        "notes": {
+          "type": "string",
+          "description": "General notes about the student (optional)"
+        },
+        "teacherId": {
+          "type": "string",
+          "description": "The UID of the teacher who manages this student"
+        },
+        "payments": {
+          "type": "object",
+          "description": "Monthly payment status ledger mapped by YYYY-MM (e.g., 'paid' or 'unpaid')"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the student was added"
+        }
+      },
+      "required": ["id", "name", "groupId", "parentPhone", "teacherId", "payments", "createdAt"]
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "description": "Attendance log for a group on a specific date",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier combining groupId and date e.g. group123_2026-05-25"
+        },
+        "groupId": {
+          "type": "string",
+          "description": "The ID of the group"
+        },
+        "date": {
+          "type": "string",
+          "description": "The date in YYYY-MM-DD format"
+        },
+        "teacherId": {
+          "type": "string",
+          "description": "The teacher UID"
+        },
+        "records": {
+          "type": "object",
+          "description": "Map of studentId to attendance status ('present', 'absent', 'late')"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the attendance record was created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the attendance record was last updated"
+        }
+      },
+      "required": ["id", "groupId", "date", "teacherId", "records", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/groups/{groupId}": {
+      "schema": "Group",
+      "description": "Core groups directory"
+    },
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Flat students directory linked to groups"
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "Attendance",
+      "description": "Flat attendance logs mapped by groupId and date"
+    }
+  }
+}

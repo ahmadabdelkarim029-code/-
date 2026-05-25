@@ -1,0 +1,6 @@
+{
+  "name": "إدارة الحضور والاشتراكات للطلاب",
+  "description": "تطبيق ويب حديث ومنظم باللغة العربية للمعلمين لإدارة مجموعات الطلاب وبطاقات رصد الحضور والغياب مع تتبع الاشتراكات المالية وتصدير التقارير بصيغ مختلفة.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

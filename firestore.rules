@@ -1,0 +1,137 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net: Deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(teacherId) {
+      return isSignedIn() && request.auth.uid == teacherId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Enforce temporal validation and sizes
+    // Schema Validator for Group
+    function isValidGroup(data) {
+      return data.keys().hasAll(['id', 'name', 'teacherId', 'createdAt'])
+        && data.keys().size() == 4
+        && isValidId(data.id)
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 150
+        && data.teacherId == request.auth.uid;
+    }
+
+    // Schema Validator for Student
+    function isValidStudent(data) {
+      return data.keys().hasAll(['id', 'name', 'groupId', 'parentPhone', 'notes', 'teacherId', 'payments', 'createdAt'])
+        && data.keys().size() == 8
+        && isValidId(data.id)
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 150
+        && isValidId(data.groupId)
+        && data.parentPhone is string && data.parentPhone.size() > 0 && data.parentPhone.size() <= 30
+        && data.notes is string && data.notes.size() <= 1000
+        && data.payments is map
+        && data.teacherId == request.auth.uid;
+    }
+
+    // Schema Validator for Attendance
+    function isValidAttendance(data) {
+      return data.keys().hasAll(['id', 'groupId', 'date', 'teacherId', 'records', 'createdAt', 'updatedAt'])
+        && data.keys().size() == 7
+        && isValidId(data.id)
+        && isValidId(data.groupId)
+        && data.date is string && data.date.size() == 10
+        && data.records is map
+        && data.teacherId == request.auth.uid;
+    }
+
+    // --- Rules for groups ---
+    match /groups/{groupId} {
+      allow create: if isSignedIn() 
+        && isValidId(groupId)
+        && isValidGroup(incoming())
+        && incoming().createdAt == request.time;
+      
+      allow read: if isSignedIn() 
+        && isOwner(existing().teacherId);
+
+      allow update: if isSignedIn() 
+        && isOwner(existing().teacherId)
+        && isValidGroup(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name']);
+
+      allow delete: if isSignedIn() 
+        && isOwner(existing().teacherId);
+    }
+
+    // --- Rules for students ---
+    match /students/{studentId} {
+      allow create: if isSignedIn() 
+        && isValidId(studentId)
+        && isValidStudent(incoming())
+        && incoming().createdAt == request.time
+        // Verify relational parent group exists and belongs to this teacher
+        && exists(/databases/$(database)/documents/groups/$(incoming().groupId))
+        && get(/databases/$(database)/documents/groups/$(incoming().groupId)).data.teacherId == request.auth.uid;
+
+      allow read: if isSignedIn() 
+        && isOwner(existing().teacherId);
+
+      allow update: if isSignedIn() 
+        && isOwner(existing().teacherId)
+        && isValidStudent(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().groupId == existing().groupId
+        && incoming().diff(existing()).affectedKeys().hasAny(['name', 'parentPhone', 'notes', 'payments'])
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'parentPhone', 'notes', 'payments']);
+
+      allow delete: if isSignedIn() 
+        && isOwner(existing().teacherId);
+    }
+
+    // --- Rules for attendance ---
+    match /attendance/{attendanceId} {
+      allow create: if isSignedIn() 
+        && isValidId(attendanceId)
+        && isValidAttendance(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        // Verify relational parent group exists and belongs to this teacher
+        && exists(/databases/$(database)/documents/groups/$(incoming().groupId))
+        && get(/databases/$(database)/documents/groups/$(incoming().groupId)).data.teacherId == request.auth.uid;
+
+      allow read: if isSignedIn() 
+        && isOwner(existing().teacherId);
+
+      allow update: if isSignedIn() 
+        && isOwner(existing().teacherId)
+        && isValidAttendance(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().groupId == existing().groupId
+        && incoming().diff(existing()).affectedKeys().hasAny(['records', 'updatedAt'])
+        && incoming().diff(existing()).affectedKeys().hasOnly(['records', 'updatedAt']);
+
+      allow delete: if isSignedIn() 
+        && isOwner(existing().teacherId);
+    }
+  }
+}
